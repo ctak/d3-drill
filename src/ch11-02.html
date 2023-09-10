@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>D3: Filtering Selections Based on Data</title>
+  <!-- <script type="text/javascript" src="../d3.js"></script> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+    integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <style type="text/css">
+    .line {
+      fill: none;
+      stroke: teal;
+      stroke-width: 0.5;
+    }
+  </style>
+</head>
+
+<body>
+  <script>
+    var w = 800;
+    var h = 300;
+    var padding = 40;
+
+    var dataset, xScale, yScale, xAxis, yAxis, line; // Empty, for now
+
+    // For converting Dates to string
+    var formatTime = d3.timeFormat("%Y");
+
+    function rowConverter (d) {
+      return {
+        date: new Date(+d.year, (+d.month - 1)),
+        average: parseFloat(d.average),
+      };
+    }
+
+    // Load in data
+    d3.csv('/mauna_loa_co2_monthly_averages.csv', rowConverter)
+      .then(function (data) {
+        var dataset = data;
+        // Print data to console as table, for verification
+        // console.table(dataset, ['date', 'average']);
+
+        // Create scale functions
+        xScale = d3.scaleTime()
+          .domain([
+            d3.min(dataset, d => d.date),
+            d3.max(dataset, d => d.date),
+          ])
+          .range([padding, w]);
+
+        yScale = d3.scaleLinear()
+          .domain([0, d3.max(dataset, d => d.average)])
+          .range([h - padding, 0]);
+
+        // Define axes
+        xAxis = d3.axisBottom()
+          .scale(xScale)
+          .ticks(10)
+          .tickFormat(formatTime);
+
+        //
+        yAxis = d3.axisLeft()
+          .scale(yScale)
+          .ticks(10);
+
+        // Define line generator, with x and y
+        var line = d3.line()
+          .x(d => xScale(d.date))
+          .y(d => yScale(d.average));
+
+        var svg = d3.select('body')
+          .append('svg')
+          .attr('width', w)
+          .attr('height', h);
+
+        svg.append('path')
+          .datum(dataset)
+          .attr('class', 'line')
+          .attr('d', line);
+
+        // Create axes
+        svg.append('g')
+          .attr('class', 'axis')
+          .attr('transform', `translate(0,${h - padding})`)
+          .call(xAxis);
+
+        svg.append('g')
+          .attr('class', 'axis')
+          .attr('transform', `translate(${padding}, 0)`)
+          .call(yAxis);
+
+      });
+  </script>
+</body>
+
+</html>
