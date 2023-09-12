@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>D3: Filtering Selections Based on Data</title>
+    <!-- <script type="text/javascript" src="../d3.js"></script> -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+      integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <style type="text/css">
+      .area {
+        fill: teal;
+        stroke: none;
+      }
+
+      .line {
+        fill: none;
+        stroke: teal;
+        stroke-width: 0.5;
+      }
+
+      .safeLevel {
+        stroke: red;
+        stroke-dasharray: 2, 3;
+      }
+
+      .danger {
+        /* stroke: red; */
+        fill: red;
+      }
+
+      .dangerLabel {
+        font-family: Helvetica, sans-serif;
+        font-size: 12px;
+        fill: red;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script>
+      var w = 800;
+      var h = 300;
+      var padding = 40;
+
+      var dataset, xScale, yScale, xAxis, yAxis, line, dangerLine; // Empty, for now
+      var area, dangerArea;
+
+      // For converting Dates to string
+      var formatTime = d3.timeFormat("%Y");
+
+      function rowConverter(d) {
+        return {
+          date: new Date(+d.year, +d.month - 1),
+          average: parseFloat(d.average),
+        };
+      }
+
+      // Load in data
+      d3.csv("/mauna_loa_co2_monthly_averages.csv", rowConverter).then(
+        function (data) {
+          var dataset = data;
+          // Print data to console as table, for verification
+          // console.table(dataset, ['date', 'average']);
+
+          // Create scale functions
+          xScale = d3
+            .scaleTime()
+            .domain([
+              d3.min(dataset, (d) => d.date),
+              d3.max(dataset, (d) => d.date),
+            ])
+            .range([padding, w]);
+
+          yScale = d3
+            .scaleLinear()
+            .domain([
+              d3.min(dataset, (d) => (d.average >= 0 ? d.average : null)) - 10,
+              d3.max(dataset, (d) => d.average),
+            ])
+            .range([h - padding, 0]);
+
+          // Define axes
+          xAxis = d3
+            .axisBottom()
+            .scale(xScale)
+            .ticks(10)
+            .tickFormat(formatTime);
+
+          //
+          yAxis = d3.axisLeft().scale(yScale).ticks(10);
+
+          // Define line generator, with x and y
+          area = d3
+            .area()
+            // .defined((d) => d.average >= 0 && d.average <= 350)
+            .defined((d) => d.average >= 0)
+            .x((d) => xScale(d.date))
+            .y0(() => yScale.range()[0])
+            .y1((d) => yScale(d.average));
+
+          dangerArea = d3
+            .area()
+            .defined((d) => d.average >= 350)
+            .x((d) => xScale(d.date))
+            .y0(() => yScale(350))
+            .y1((d) => yScale(d.average));
+
+          var svg = d3
+            .select("body")
+            .append("svg")
+            .attr("width", w)
+            .attr("height", h);
+
+          svg
+            .append("path")
+            .datum(dataset)
+            .attr("class", "area")
+            .attr("d", area);
+
+          svg
+            .append("path")
+            .datum(dataset)
+            .attr("class", "area danger")
+            .attr("d", dangerArea);
+
+          // Create axes
+          svg
+            .append("g")
+            .attr("class", "axis")
+            .attr("transform", `translate(0,${h - padding})`)
+            .call(xAxis);
+
+          svg
+            .append("g")
+            .attr("class", "axis")
+            .attr("transform", `translate(${padding}, 0)`)
+            .call(yAxis);
+
+          // Draw 350 ppm line
+          svg
+            .append("line")
+            .attr("class", "line safeLevel")
+            .attr("x1", padding)
+            .attr("x2", w)
+            .attr("y1", yScale(350))
+            .attr("y2", yScale(350));
+
+          // Label 350 ppm line
+          svg
+            .append("text")
+            .attr("class", "dangerLabel")
+            .attr("x", padding + 20)
+            .attr("y", yScale(350) - 7)
+            .text('350 ppm "safe" level');
+        }
+      );
+    </script>
+  </body>
+</html>
