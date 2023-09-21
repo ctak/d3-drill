@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>D3: Filtering Selections Based on Data</title>
+    <!-- <script type="text/javascript" src="../d3.js"></script> -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+      integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <style type="text/css">
+      .area {
+        fill: teal;
+        stroke: none;
+      }
+
+      .line {
+        fill: none;
+        stroke: teal;
+        stroke-width: 0.5;
+      }
+
+      .safeLevel {
+        stroke: red;
+        stroke-dasharray: 2, 3;
+      }
+
+      .danger {
+        /* stroke: red; */
+        fill: red;
+      }
+
+      .dangerLabel {
+        font-family: Helvetica, sans-serif;
+        font-size: 12px;
+        fill: red;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script>
+      // Specify the chart's dimensions.
+      const width = 928;
+      const height = 600;
+      const marginTop = 20;
+      const marginRight = 20;
+      const marginBottom = 30;
+      const marginLeft = 30;
+
+      function rowConverter(d) {
+        return {
+          ...d,
+          date: Date.parse(d.date),
+          average: parseFloat(d.average),
+        }
+      }
+
+      // Create the positional scales,
+      d3.csv('./bls-metro-unemployment.csv', rowConverter).then(unemployment => {
+        console.log(unemployment.length);
+        console.log(d3.extent(unemployment, d => d.date));
+
+        const x = d3.scaleUtc()
+          .domain(d3.extent(unemployment, d => d.date))
+          .range([marginLeft, width - marginRight]);
+
+        // console.log(x.domain()) // (2) [Sat Jan 01 2000 09:00:00 GMT+0900 (한국 표준시), Tue Oct 01 2013 09:00:00 GMT+0900 (한국 표준시)]
+
+        const y = d3.scaleLinear()
+          .domain([0, d3.max(unemployment, d => d.unemployment)]).nice()
+          .range([height - marginBottom, marginTop]);
+
+        // Create the SVG container.
+        const svg = d3.create('svg')
+          .attr('width', width)
+          .attr('height', height)
+          .attr('viewBox', [0, 0, width, height])
+          .attr('style', 'max-width: 100%; height: auto; overflow: visible; font: 10px sans-serif;');
+      });
+    </script>
+  </body>
+</html>
