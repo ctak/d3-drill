@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bezier curve animation using D3.js</title>
+    <!-- <script type="text/javascript" src="../d3.js"></script> -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+      integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <style type="text/css">
+    </style>
+  </head>
+
+  <body>
+    <div id="bezier-demo"></div>
+    <script>
+      const bezierLine = d3.line()
+        .x(d => d[0])
+        .y(d => d[1])
+        // .interpolate('basis');
+        .curve(d3.curveBasis);
+
+      const svg = d3.select('#bezier-demo')
+        .append('svg')
+        .attr('width', 300)
+        .attr('height', 150);
+
+      svg.append('path')
+        .attr('d', bezierLine([
+          [0, 40],
+          [25, 70],
+          [50, 100],
+          [100, 50],
+          [150, 20],
+          [200, 130],
+          [300, 120],
+        ]))
+        .attr('stroke', 'red')
+        .attr('stroke-width', 1)
+        .attr('fill', 'none')
+        // .attr('stroke-dasharray', '10, 5')
+        .transition()
+          .duration(2000)
+          .attrTween('stroke-dasharray', function () {
+            const len = this.getTotalLength();
+            console.log(`len:${len}`);
+            // return function (t) { return (d3.interpolateString("0," + len, len + ",0"))(t) };
+            return function (t) { return (d3.interpolateString(`0,${len}`, `${len},0`))(t) };
+          })
+        ;
+    </script>
+  </body>
+</html>

@@ -50,13 +50,18 @@
       const marginBottom = 30;
       const marginLeft = 30;
 
+      let svg;
+
       function rowConverter(d) {
         return {
           ...d,
           date: Date.parse(d.date),
-          average: parseFloat(d.average),
+          unemployment: parseFloat(d.unemployment),
         }
       }
+
+      const voronoi = false;
+      // const voronoi = true;
 
       // Create the positional scales,
       d3.csv('./bls-metro-unemployment.csv', rowConverter).then(unemployment => {
@@ -74,11 +79,141 @@
           .range([height - marginBottom, marginTop]);
 
         // Create the SVG container.
-        const svg = d3.create('svg')
+        // const svg = d3.create('svg')
+        svg = d3.select('body')
+          .append('svg')
           .attr('width', width)
           .attr('height', height)
           .attr('viewBox', [0, 0, width, height])
           .attr('style', 'max-width: 100%; height: auto; overflow: visible; font: 10px sans-serif;');
+
+        // Add the horizontal axis.
+        svg.append("g")
+          .attr('transform', `translate(0, ${height - marginBottom})`)
+          .call(d3.axisBottom(x).ticks(width / 80).tickSizeOuter(0));
+
+        // Add the vertical axis.
+        svg.append('g')
+          .attr('transform', `translate(${marginLeft}, 0)`)
+          .call(d3.axisLeft(y))
+          .call(g => g.select(".domain").remove()) // --> y 축 라인을 지운다.
+          .call(voronoi ? () => {} : g => g.selectAll('.tick line').clone()
+            .attr('x2', width - marginLeft - marginRight)
+            .attr('stroke-opacity', 0.1)) // --> y 축 값선을 만든다. 그런데 x2 이네.
+          .call(g => g.append('text')
+            .attr('x', -marginLeft)
+            .attr('y', 10)
+            .attr('fill', 'currentColor')
+            .attr('text-anchor', 'start')
+            .text('↑ Unemployment (%)'));
+
+        // Compute the points in pixel space as [x, y, z], where z is the name of the series.
+        // svg 의 픽셀 공간 안에서 각 값들의 point 를 찾는다. z 로 지역을 추상하고 있음.
+        const points = unemployment.map(d => [x(d.date), y(d.unemployment), d.division]);
+
+        // An optional Voronoi display (for fun).
+        if (voronoi) svg.append('path')
+          .attr('fill', 'none')
+          .attr('stroke', '#ccc')
+          .attr('d', d3.Delaunay
+            .from(points)
+            .voronoi([0, 0, width, height])
+            .render());
+
+        // console.log(points);
+        // Group the points by series.
+        // d3 rollup 은 인자가 3개네.
+        // v: d[2] 지역에 의해 rollup 이 된 v 는 166개의 data 임.
+        // 그럼 반복 회수는: 45개의 지역이 반복되고 있음.
+        let looped = 0;
+        const groups = d3.rollup(points, v => {
+          looped += 1;
+          // console.log(v);
+          return Object.assign(v, {z: v[0][2]});
+        }, d => d[2]);
+        console.log(groups);
+
+        /*
+        --> groups 는 map 이고, key 는 지역, value 는 Array 인데, 지역의 값, 그리고 사적 프로퍼티 z: '지역' .
+0
+:
+{"Bethesda-Rockville-Frederick, MD Met Div" => Array(166)}
+key
+:
+"Bethesda-Rockville-Frederick, MD Met Div"
+value
+:
+Array(166)
+[0 … 99]
+[100 … 165]
+z
+:
+"Bethesda-Rockville-Frederick, MD Met Div"
+length
+:
+166
+        */
+        console.log(`looped: ${looped}`);
+
+        // Draw the lines.
+        const line = d3.line();
+        const path = svg.append('g')
+          .attr('fill', 'none')
+          .attr('stroke', 'steelblue')
+          .attr('stroke-width', 1.5)
+          .attr('stroke-linejoin', 'round')
+          .attr('stroke-linecap', 'round')
+          .selectAll('path')
+          .data(groups.values())
+          .join('path')
+          .style('mix-blend-mode', 'multiply')
+          .attr('d', line);
+
+        // Add an invisible layer for the interactive tip.
+        const dot = svg.append('g')
+          .attr('display', 'none');
+
+        dot.append('circle')
+          .attr('r', 2.5);
+
+        dot.append('text')
+          .attr('text-anchor', 'middle')
+          .attr('y', -8);
+
+        svg
+          .on('pointerenter', pointerentered)
+          .on('pointermove', pointermoved)
+          .on('pointerleave', pointerleft)
+
+        // When the pointer moves, find the closest point, update the interactive tip, and highlight
+        // the corresponding line.
+
+        function pointermoved(event) {
+          const [xm, ym] = d3.pointer(event);
+          // 모든 points 에서 가장 가까운 점을 찾고 있어.
+          const i = d3.leastIndex(points, ([x, y]) => Math.hypot(x - xm, y - ym));
+          const [x, y, k] = points[i];
+          //.raise() 가 있으므로 가장 위로 올라오고 있음.
+          path.style('stroke', ({z}) => z === k ? null : '#ddd').filter(({z}) => z === k)//.raise();
+          dot.attr('transform', `translate(${x},${y})`);
+          dot.select('text').text(k);
+          // 이 부분은 무엇을 하고 있는지 모르겠군.
+          // 어떤 다른 function 에서 사용하려고 값을 매김한 것일까?
+          svg.property('value', unemployment[i]).dispatch('input', {bubbles: true});
+        }
+
+        function pointerentered() {
+          path.style('mix-blend-mode', null).style('stoke', '#ddd');
+          dot.attr('display', null);
+        }
+
+        function pointerleft() {
+          path.style('mix-blend-mode', 'multiply').style('stroke', null);
+          dot.attr('display', 'none');
+          svg.node().value = null;
+          svg.dispatch('input', {bubbles: true});
+        }
+
       });
     </script>
   </body>
