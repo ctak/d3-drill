@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>D3: Filtering Selections Based on Data</title>
+    <!-- <script type="text/javascript" src="../d3.js"></script> -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+      integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <style type="text/css">
+      .area {
+        fill: teal;
+        stroke: none;
+      }
+
+      .line {
+        fill: none;
+        stroke: teal;
+        stroke-width: 0.5;
+      }
+
+      .safeLevel {
+        stroke: red;
+        stroke-dasharray: 2, 3;
+      }
+
+      .danger {
+        /* stroke: red; */
+        fill: red;
+      }
+
+      .dangerLabel {
+        font-family: Helvetica, sans-serif;
+        font-size: 12px;
+        fill: red;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="wrap">
+      <h1>Animation along paths in d3</h1>
+      <div id="example-line"></div>
+      <div id="example-sine"></div>
+    </div>
+
+    <script>
+
+// /*
+
+        const margin = { top: 10, right: 10, bottom: 20, left: 30 };
+        const outerWidth = 800;
+        const outerHeight = 300;
+        const innerWidth = outerWidth - margin.left - margin.right;
+        const innerHeight = outerHeight - margin.top - margin.bottom;
+        const parentNode = d3.select('#example-line');
+
+        let data = [];
+        let lastY = 5;
+        let point = 0;
+
+        // Create data set.
+        for (let i = 0; i < 20; i++) {
+          const nextY = lastY * (1 + 0.5 * (Math.random() - 0.5));
+          data.push(nextY);
+          lastY = nextY;
+        }
+
+
+        // Create checkbox to show segment.
+        parentNode.append('input')
+          .attr('type', 'checkbox')
+          .on('change', function () {
+            d3.select('#path-seg').attr('stroke', this.checked ? '#b44' : 'none');
+          });
+        parentNode.append('span').text('Show segment');
+
+        // Create button to update on click.
+        parentNode.append('button')
+          .text('Update')
+          .on('click', update);
+
+        const text = parentNode.append('span');
+
+        // Create main svg element
+        const svg = parentNode.append('svg')
+          .attr('width', outerWidth)
+          .attr('height', outerHeight)
+          .append('g')
+          .attr('transform', `translate(${margin.left},${margin.top})`);
+
+        // Create scales and axes
+        const x = d3.scaleLinear().domain([0, data.length - 1]).range([0, innerWidth]).nice();
+        const y = d3.scaleLinear().domain([0, d3.max(data)]).range([innerHeight, 0]).nice();
+        const xAxis = d3.axisBottom(x);
+        const yAxis = d3.axisLeft(y);
+
+        // Render axes.
+        svg.append('g')
+          .attr('class', 'x axis')
+          .attr('transform', `translate(0, ${innerHeight})`)
+          .call(xAxis);
+
+        svg.append('g')
+          .attr('class', 'y axis')
+          .call(yAxis);
+
+
+          // Render line.
+          const line = d3.line()
+            .curve(d3.curveLinear)
+            .x((d, i) => x(i))
+            .y(d => y(d));
+
+          svg.append('path')
+            .datum(data)
+            .attr('id', 'line')
+            .attr('fill', 'none')
+            .attr('stroke-width', 2)
+            .attr('stroke', 'steelblue')
+            .attr('d', line);
+
+
+          // Render line segment that we'll animate along.
+          const lineSeg = d3.line()
+            .curve(d3.curveLinear)
+            .x((d, i) => x(i))
+            .y(d => y(d))
+
+          const pathSeg = svg.append('path')
+            .datum(data)
+            .attr('id', 'path-seg')
+            .attr('fill', 'none')
+            .attr('stroke-width', 2)
+            .attr('stroke', 'none');
+
+        // Render marker.
+        const marker = svg.append('circle')
+          .attr('id', 'marker')
+          .attr('r', 5)
+          .attr('cx', 0)
+          .attr('cy', 0)
+          .attr('fill', '#fff')
+          .attr('stroke-width', 2)
+          .attr('stroke', 'steelblue')
+          .attr('transform', 'translate(' + x(point) + ',' + y(data[point]) + ')');
+
+      update();
+
+      // Update position of marker.
+      function update() {
+        // Get the next point.
+        const nextPoint = Math.floor(Math.random() * (data.length - 1));
+        console.log(`nextPoint: ${nextPoint}`);
+
+
+        // Only include points between existing and new point.
+        lineSeg.defined((d, ii) =>
+          ii <= nextPoint && ii >= point || ii <= point && ii >= nextPoint
+        );
+
+        console.log('here 0');
+
+        // Update path. --> 음. pathSeg 를 lineSeg.defined 로 업데이트 하네.
+        pathSeg.attr('d', lineSeg);
+
+        // Transition marker from point to nextPoint.
+        // return;
+        marker.transition().duration(1500)
+          .attrTween('transform',
+            nextPoint > point
+              ? translateRight(pathSeg.node())
+              : translateLeft(pathSeg.node()))
+          .on('end', () => { point = nextPoint; });
+
+        text.text(`x= ${nextPoint}`);
+
+      }
+
+      // Tween function for moving to right.
+      function translateRight (node) {
+        const l = node.getTotalLength();
+        return () => {
+          return (t) => { // --> 여기서 t 는 0 부터 1 이겠군.
+            const p = node.getPointAtLength(t * l);
+            return `translate(${p.x}, ${p.y})`;
+          };
+        };
+      }
+
+      // Tween function for moving to left.
+      function translateLeft (node) {
+        const l = node.getTotalLength();
+        return () => {
+          return (t) => {
+            const p = node.getPointAtLength( (1 - t) * l);
+            return `translate(${p.x}, ${p.y})`;
+          };
+        };
+      }
+
+      // */
+
+    </script>
+  </body>
+</html>
