@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>gist23-01 Animation Along a Path</title>
+    <!-- <script type="text/javascript" src="../d3.js"></script> -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+      integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script src="/lib.js"></script>
+    <style type="text/css">
+
+      svg {
+        border: 1px solid #aaa;
+      }
+      .area {
+        fill: teal;
+        stroke: none;
+      }
+
+      .line {
+        fill: none;
+        stroke: teal;
+        stroke-width: 0.5;
+      }
+
+      .safeLevel {
+        stroke: red;
+        stroke-dasharray: 2, 3;
+      }
+
+      .danger {
+        /* stroke: red; */
+        fill: red;
+      }
+
+      .dangerLabel {
+        font-family: Helvetica, sans-serif;
+        font-size: 12px;
+        fill: red;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="wrap">
+      <h1>Animation along paths in d3</h1>
+      <div id="example-line"></div>
+      <div id="example-sine"></div>
+    </div>
+
+    <script>
+/*
+      1. data 의 target 을 확인한 후 path 를 그린다.
+      2. path 에 pathSeg 를 그린다.
+      3. 3단계의 pathSeg 위에서 움직인다.
+
+
+      TODO
+      - clip 이 있어야 start 를 표시할 수 있겠는데.
+      - 표시되는 데이터는 각각 g 으로 묶여서 이벤트가 끝나면 해당 데이터 모두 지우면 됨.
+
+      REF
+      - https://observablehq.com/@d3/easing-animations
+      - https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
+*/
+      // function ready() {
+        const margin = { top: 10, right: 10, bottom: 20, left: 30 };
+        const outerWidth = 800;
+        const outerHeight = 300;
+        const innerWidth = outerWidth - margin.left - margin.right;
+        const innerHeight = outerHeight - margin.top - margin.bottom;
+        const parentNode = d3.select('#example-line');
+
+        // Create main svg element
+        const svg = parentNode.append('svg')
+          .attr('width', outerWidth)
+          .attr('height', outerHeight)
+          .append('g')
+          .attr('transform', `translate(${margin.left},${margin.top})`);
+
+        const x = d3.scaleLinear().domain([0, 800]).range([0, innerWidth]);
+        const y = d3.scaleLinear().domain([0, 300]).range([0, innerHeight]);
+        const xAxis = d3.axisBottom(x);
+        const yAxis = d3.axisLeft(y);
+
+        // Render axes.
+        svg.append('g')
+          .attr('class', 'x axis')
+          .attr('transform', `translate(0, ${innerHeight})`)
+          .call(xAxis);
+
+        svg.append('g')
+          .attr('class', 'y axis')
+          .call(yAxis);
+
+      // }
+      // ready();
+
+      async function getMock() {
+        await sleep(1000);
+        return ([...new Array(1)].map((d, i) => {
+          return {
+            val: Math.floor(100 * Math.random()),
+            grade: Math.floor(5 * Math.random()),
+            district: Math.floor(3 * Math.random()),
+          };
+        }));
+      }
+
+      update();
+
+      async function update () {
+        console.log('update() ...');
+        // get data async
+        const mock = await getMock();
+        console.log(JSON.stringify(mock, null, 2));
+
+        // cal path
+        const data = mock.map(d => {
+          const firstY = 100 + Math.floor(Math.random() * 101);
+          const lastY = Math.floor(Math.random() * 61)
+            + (d.district === 0 ? 25 : d.district === 1 ? 120 : 215);
+          return [
+            [0, firstY],
+            [500, firstY],
+            [600, lastY],
+            [800, lastY],
+          ];
+        });
+
+        console.log(JSON.stringify(data, null, 2));
+
+        const uuid = self.crypto.randomUUID();
+        const g = svg.append('g')
+          .attr('id', uuid);
+
+        let point = data[0][0];
+        console.log(`point: ${point}`);
+
+        const line = d3.line()
+          .curve(d3.curveLinear)
+          .x(d => x(d[0]))
+          .y(d => y(d[1]));
+
+        g.append('path')
+          .datum(data[0])
+          .attr('id', 'line')
+          .attr('fill', 'none')
+          .attr('stroke-width', 2)
+          // .attr('stroke', 'steelblue')
+          .attr('stroke', 'none')
+          .attr('d', line);
+
+        const marker = g.append('circle')
+          .attr('id', 'marker')
+          .attr('r', 5)
+          .attr('cx', 0)
+          .attr('cy', 0)
+          .attr('fill', '#fff')
+          .attr('stroke-width', 2)
+          .attr('stroke', 'steelblue')
+          .attr('transform', `translate(${x(point[0])}, ${y(point[1])})`);
+
+        const lineSeg = d3.line()
+          .curve(d3.curveLinear)
+          .x(d => x(d[0]))
+          .y(d => y(d[1]));
+
+        const pathSeg = g.append('path')
+          .datum(data[0])
+          .attr('id', 'path-seg')
+          .attr('fill', 'none')
+          .attr('stroke-width', 2)
+          // .attr('stroke', '#b44')
+          .attr('stroke', 'none')
+          ;
+
+        // first move
+        lineSeg.defined((d, i) => i < 2);
+
+        pathSeg.attr('d', lineSeg);
+
+        marker.transition().duration(1500)
+          .ease(d3.easeLinear)
+          .attrTween('transform', translateRight(pathSeg.node()))
+          .on('end', () => {
+            console.log('end of 1st moving');
+            move2(lineSeg, pathSeg, marker, g);
+          });
+      }
+
+      function move2(lineSeg, pathSeg, marker, g) {
+        lineSeg.defined((d, i) => i === 1 || i === 2);
+
+        pathSeg.attr('d', lineSeg);
+
+        marker.transition().duration(600)
+          .ease(d3.easeQuadOut)
+          .attrTween('transform', translateRight(pathSeg.node()))
+          .on('end', () => {
+            console.log('end of 2nd moving');
+            //
+            move3(lineSeg, pathSeg, marker, g);
+          })
+      }
+
+      function move3(lineSeg, pathSeg, marker, g) {
+        lineSeg.defined((d, i) => i > 1);
+
+        pathSeg.attr('d', lineSeg);
+
+        marker.transition().duration(1000)
+          .ease(d3.easeLinear)
+          .attrTween('transform', translateRight(pathSeg.node()))
+          .on('end', () => {
+            console.log('end of 3rd moving');
+            //
+            g.remove();
+          })
+      }
+
+      function translateRight (node) {
+        const l = node.getTotalLength();
+        return () => {
+          return (t) => {
+            const p = node.getPointAtLength(t * l);
+            return `translate(${p.x}, ${p.y})`;
+          };
+        };
+      }
+
+    </script>
+  </body>
+</html>
