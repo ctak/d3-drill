@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Line chart</title>
+    <rel>https://observablehq.com/@d3/candlestick-chart</rel>
+    <!-- <script type="text/javascript" src="../d3.js"></script> -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+      integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <style type="text/css">
+      .area {
+        fill: teal;
+        stroke: none;
+      }
+
+      .line {
+        fill: none;
+        stroke: teal;
+        stroke-width: 0.5;
+      }
+
+      .safeLevel {
+        stroke: red;
+        stroke-dasharray: 2, 3;
+      }
+
+      .danger {
+        /* stroke: red; */
+        fill: red;
+      }
+
+      .dangerLabel {
+        font-family: Helvetica, sans-serif;
+        font-size: 12px;
+        fill: red;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script>
+      // Declare the chart dimensions and margins.
+      const width = 928;
+      const height = 600;
+      const marginTop = 20;
+      const marginRight = 30;
+      const marginBottom = 30;
+      const marginLeft = 40;
+
+      const xRange = [marginLeft, width - marginRight];
+      const xPadding = 0.2;
+
+      const yRange = [height - marginBottom, marginTop];
+
+      function rowConverter(d) {
+        return {
+          // ...d,
+          date: Date.parse(d.Date), // 결국 date 도 숫자니까.
+          open: parseFloat(d.Open),
+          close: parseFloat(d.Close),
+          high: parseFloat(d.High),
+          low: parseFloat(d.Low),
+        }
+      }
+
+      d3.csv('./aapl-2.csv', rowConverter).then(data => {
+        data = data .slice(-120); // 결국 이 정도 width 에서는 120 개 정도만 보인다는 말이네.
+
+        const X = d3.map(data, d => d.date); // 배열이네.
+        const Yo = d3.map(data, d => d.open);
+        const Yc = d3.map(data, d => d.close);
+        const Yh = d3.map(data, d => d.high);
+        const Yl = d3.map(data, d => d.low);
+        const I = d3.range(X.length); // 이거도 배열
+        console.log(`length: ${X.length}`); // 1260
+
+        const weeks = (start, stop, stride) => d3.utcMonday.every(stride).range(start, +stop + 1);
+        const weekdays = (start, stop) => d3.utcDays(start, +stop + 1).filter(d => d.getUTCDay() !== 0 && d.getUTCDay() !== 6);
+
+        // Compute default domains and ticks.
+        const xDomain = weekdays(d3.min(X), d3.max(X));
+        console.log(xDomain.length); // => 1305 아하. scaleBand 를 써야 하기 때문에 배열이 되어야 하는군.
+        const yDomain = [d3.min(Yl), d3.max(Yh)];
+        console.log(yDomain.length); // => 2
+        const xTicks = weeks(d3.min(xDomain), d3.max(xDomain), 2);
+        console.log(xTicks.length); // => 130
+
+        // Construct scales and axes.
+        // If you were to plot a stock using d3.scaleUtc, you'd see distracting gaps
+        // every weekend. his chart therefore uses a d3.scaleBand whose domain is every
+        // weekday in the dataset. A few gaps remain for holiday weekdays, such as
+        // Christmas, but these are infrequent and allow the labeling of Mondays. As a
+        // band scale, we specify explicit tick values.
+        const xScale = d3.scaleBand(xDomain, xRange).padding(xPadding);
+        const yScale = d3.scaleLinear(yDomain, yRange);
+        const xAxis = d3.axisBottom(xScale).tickFormat(d3.utcFormat('%b %-d')).tickValues(xTicks);
+        const yAxis = d3.axisLeft(yScale).ticks(height / 40, '~f');
+
+        // Compute titles.
+        const formatDate = d3.utcFormat('%B %-d, %Y');
+        const formatValue = d3.format('.2f');
+
+        // Create the SVG container.
+        const svg = d3.select('body').append("svg")
+          .attr('width', width)
+          .attr('height', height)
+          .attr('viewBox', [0, 0, width, height])
+          .attr('style', 'max-width: 100%; height: auto; height: intrinsic;');
+
+        svg.append('g')
+          .attr('transform', `translate(0, ${height - marginBottom})`)
+          .call(xAxis)
+          .call(g => g.select('.domain').remove());
+
+        const yLabel = "↑ Price ($)";
+
+        svg.append('g')
+          .attr('transform', `translate(${marginLeft}, 0)`)
+          .call(yAxis)
+          .call(g => g.select('.domain').remove())
+          .call(g => g.selectAll('.tick line').clone()
+            .attr('stroke-opacity', 0.2)
+            .attr('x2', width - marginLeft - marginRight))
+          .call(g => g.append('text')
+            .attr('x', -marginLeft)
+            .attr('y', 10)
+            .attr('fill', 'currentColor')
+            .attr('text-anchor', 'start')
+            .text(yLabel));
+
+        const stroke = 'currentColor', strokeLinecap = 'round';
+        const colors = ["#4daf4a", "#999999", "#e41a1c"] // [up, no change, down]
+
+        const g = svg.append('g')
+            .attr('stroke', stroke)
+            .attr('stroke-linecap', strokeLinecap)
+          .selectAll('g')
+          .data(I)
+          .join('g')
+            .attr('transform', i => `translate(${xScale(X[i])}, 0)`);
+
+        g.append('line')
+          .attr('y1', i => yScale(Yl[i]))
+          .attr('y2', i => yScale(Yh[i]));
+
+        g.append('line')
+          .attr('y1', i => yScale(Yo[i]))
+          .attr('y2', i => yScale(Yc[i]))
+          .attr('stroke-width', xScale.bandwidth())
+          .attr('stroke', i => colors[1 + Math.sign(Yo[i] - Yc[i])]);
+      });
+
+    </script>
+  </body>
+</html>
