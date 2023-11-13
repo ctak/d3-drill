@@ -68,7 +68,7 @@
       }
 
       d3.csv('./aapl-2.csv', rowConverter).then(data => {
-        data = data .slice(-120); // 결국 이 정도 width 에서는 120 개 정도만 보인다는 말이네.
+        data = data.slice(-120); // 결국 이 정도 width 에서는 120 개 정도만 보인다는 말이네.
 
         const X = d3.map(data, d => d.date); // 배열이네.
         const Yo = d3.map(data, d => d.open);
