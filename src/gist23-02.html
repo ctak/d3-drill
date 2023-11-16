@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>천안화재 - 흐르는 강물처럼</title>
+    <rel>https://observablehq.com/@d3/candlestick-chart/2</rel>
+    <!-- <script type="text/javascript" src="../d3.js"></script> -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+      integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <style type="text/css">
+      .area {
+        fill: teal;
+        stroke: none;
+      }
+
+      .line {
+        fill: none;
+        stroke: teal;
+        stroke-width: 0.5;
+      }
+
+      .safeLevel {
+        stroke: red;
+        stroke-dasharray: 2, 3;
+      }
+
+      .danger {
+        /* stroke: red; */
+        fill: red;
+      }
+
+      .dangerLabel {
+        font-family: Helvetica, sans-serif;
+        font-size: 12px;
+        fill: red;
+      }
+
+      #playground {
+        max-width: 960px;
+        min-width: 600px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="playground"></div>
+
+    <script>
+      // Declare the chart dimensions and margins.
+      const width = 928;
+      const height = 500;
+      const marginTop = 20;
+      const marginRight = 30;
+      const marginBottom = 30;
+      const marginLeft = 40;
+
+      function rowConverter(d) {
+        function format(str) {
+          let [date, gubun, time] = str.split(" ");
+          let hh = parseInt(time.slice(0, time.indexOf(":")), 10);
+          let miss = time.slice(time.indexOf(":"));
+          const h =
+            gubun === "오전" && hh === 12
+              ? 0
+              : gubun === "오전"
+              ? hh
+              : hh === 12
+              ? hh
+              : hh + 12;
+          const literal = `${date}T${h < 10 ? "0" + h : h}${miss}.000+09:00`;
+          // console.log(`===${literal}`);
+          return literal;
+        }
+        return {
+          // ...d,
+          date: Date.parse(format(d.Datetime)), // 결국 date 도 숫자니까.
+          U0_A: parseFloat(d.U0_A),
+        };
+      }
+
+      d3.csv("./cs-ex2.csv", rowConverter).then((data) => {
+        const ticker = data.slice(-100);
+
+        // Declare the x scale
+        const x = d3.scaleTime(
+          d3.extent(ticker, (d) => d.date),
+          [marginLeft, width - marginRight]
+        );
+
+        // Declare the y scale
+        const y = d3.scaleLinear(
+          [0, d3.max(ticker, (d) => d.U0_A)],
+          [height - marginBottom, marginTop]
+        );
+
+        // Declare the line generator
+        const line = d3
+          .line()
+          .x((d) => x(d.date))
+          .y((d) => y(d.U0_A));
+
+        // Create the SVG container.
+        const svg = d3
+          .select("body")
+          .append("svg")
+          .attr("width", width)
+          .attr("height", height)
+          .attr("viewBox", [0, 0, width, height])
+          .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
+
+        // Add the x-axis.
+        svg
+          .append("g")
+          .attr("transform", `translate(0, ${height - marginBottom})`)
+          // .call(d3.axisBottom(x).ticks(width / 80).tickFormat(d3.timeFormat("%m/%d")));
+          // .call(d3.axisBottom(x).ticks(5).tickSizeOuter(0));
+          .call(
+            d3
+              .axisBottom(x)
+              // .ticks(width / 80)
+              .tickSizeOuter(0)
+          );
+
+        console.log(x.domain());
+      });
+    </script>
+  </body>
+</html>
