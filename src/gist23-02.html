@@ -11,6 +11,7 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     ></script>
+    <script src="/lib.js"></script>
     <style type="text/css">
       .area {
         fill: teal;
@@ -50,9 +51,13 @@
     <div id="playground"></div>
 
     <script>
+      const interval = 300;
+
       // Declare the chart dimensions and margins.
       const width = 928;
-      const height = 500;
+      const height = 300;
+      // const width = 428;
+      // const height = 180;
       const marginTop = 20;
       const marginRight = 30;
       const marginBottom = 30;
@@ -82,6 +87,229 @@
         };
       }
 
+      // db mock
+      const db = (function warehouse () {
+        const that = {};
+        let data = undefined;
+        let idx = 0;
+
+        function rowConverter(d) {
+          function format(str) {
+            let [date, gubun, time] = str.split(" ");
+            let hh = parseInt(time.slice(0, time.indexOf(":")), 10);
+            let miss = time.slice(time.indexOf(":"));
+            const h =
+              gubun === "오전" && hh === 12
+                ? 0
+                : gubun === "오전"
+                ? hh
+                : hh === 12
+                ? hh
+                : hh + 12;
+            const literal = `${date}T${h < 10 ? "0" + h : h}${miss}.000+09:00`;
+            // console.log(`===${literal}`);
+            return literal;
+          }
+          return {
+            // ...d,
+            date: Date.parse(format(d.Datetime)), // 결국 date 도 숫자니까.
+            U0_A: parseFloat(d.U0_A),
+          };
+        }
+
+        d3.csv('./cs.csv', rowConverter).then(d => {
+          console.log('read csv...')
+          data = d;
+        })
+
+        that.fetch = async function () {
+          console.log('fetch ...')
+          await sleep(100);
+          // const chunk = 1200;
+          const chunk = 20 * 60;
+          const d = data.slice(idx, chunk + idx)
+          idx += 1;
+          return d;
+        }
+
+        return that;
+      })();
+
+
+      console.log(db);
+
+      // Declare the x scale
+      const x = d3.scaleTime().range([marginLeft, width - marginRight]);
+
+      // Declare the y scale
+      const y = d3.scaleLinear().range([height - marginBottom, marginTop]);
+
+      const yPadding = 1;
+
+      // xAxis
+      const xAxis = d3.axisBottom()
+        .scale(x)
+        .tickSizeOuter(0);
+
+      // yAxis
+      const yAxis = d3.axisLeft()
+        .scale(y)
+        .ticks(height / 40);
+
+      // Create the SVG container.
+      const svg = d3
+        .select("body")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("viewBox", [0, 0, width, height])
+        .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
+
+      const line = d3
+        .line()
+        .x((d) => x(d.date))
+        .y((d) => y(d.U0_A));
+
+      async function render() {
+        await sleep(300);
+        const ticker = await db.fetch();
+        console.log(ticker.length);
+
+        // Declare the x scale
+        // const x = d3.scaleTime(
+        //   d3.extent(ticker, (d) => d.date),
+        //   [marginLeft, width - marginRight]
+        // );
+        x.domain(d3.extent(ticker, (d) => d.date));
+
+        // Declare the y scale
+        // const y = d3.scaleLinear(
+        //   // [0, d3.max(ticker, (d) => d.U0_A)],
+        //   d3.extent(ticker, (d) => d.U0_A),
+        //   [height - marginBottom, marginTop]
+        // ).nice();
+        const yArr = d3.extent(ticker, (d) => d.U0_A);
+        y.domain([yArr[0] - yPadding, yArr[1] + yPadding]);
+
+        // Declare the line generator
+        // const line = d3
+        //   .line()
+        //   .x((d) => x(d.date))
+        //   .y((d) => y(d.U0_A));
+
+        // Create the SVG container.
+        // const svg = d3
+        //   .select("body")
+        //   .append("svg")
+        //   .attr("width", width)
+        //   .attr("height", height)
+        //   .attr("viewBox", [0, 0, width, height])
+        //   .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
+
+        // Add the x-axis.
+        svg
+          .append("g")
+          .attr('class', 'x axis')
+          .attr("transform", `translate(0, ${height - marginBottom})`)
+          // .call(d3.axisBottom(x).ticks(width / 80).tickFormat(d3.timeFormat("%m/%d")));
+          // .call(d3.axisBottom(x).ticks(5).tickSizeOuter(0));
+          .call(
+            // d3
+            //   .axisBottom(x)
+            //   // .ticks(width / 80)
+            //   .tickSizeOuter(0)
+            xAxis
+          )
+          .call(g => g.selectAll('.tick line').clone()
+            .attr('y1', -(height-marginTop-marginBottom))
+            .attr('stroke-opacity', 0.1))
+          .call(g => g.selectAll('.tick').attr('class', 'tick ticked'))
+
+        console.log(x.domain());
+
+        // Add the y-axis
+        svg
+          .append("g")
+          .attr('class', 'y axis')
+          .attr("transform", `translate(${marginLeft}, 0)`)
+          .call(
+            // d3.axisLeft(y).ticks(height / 40)
+            yAxis
+          )
+          .call((g) => g.select(".domain").remove())
+          .call((g) =>
+            g
+              .selectAll(".tick line")
+              .clone()
+              .attr("x2", width - marginLeft - marginRight)
+              .attr("stroke-opacity", 0.1))
+          .call(g => g.selectAll('.tick').attr('class', 'tick ticked'))
+          .call((g) =>
+                g
+                  .append("text")
+                  .attr("x", -marginLeft)
+                  .attr("y", 10)
+                  .attr("fill", "currentColor")
+                  .attr("text-anchor", "start")
+                  .text("온도")
+              );
+
+        // Append a path for the line.
+        svg.append('path')
+          .attr('class', 'line')
+          .attr('fill', 'none')
+          .attr('stroke', 'steelblue')
+          .attr('stroke-width', 1.5)
+          .attr('d', line(ticker));
+
+        // update after 5sec
+        setTimeout(() => update(), interval);
+
+      }
+
+      async function update() {
+        await sleep(300);
+        const ticker = await db.fetch();
+        console.log(ticker.length);
+
+        x.domain(d3.extent(ticker, (d) => d.date));
+        const yArr = d3.extent(ticker, (d) => d.U0_A);
+        // console.log(yArr);
+        y.domain([yArr[0] - yPadding, yArr[1] + yPadding]);
+
+        const svg = d3.select('svg')// .transition();
+
+        const durTime = 10
+        svg.select('.line')
+          // .duration(durTime)
+          .attr('d', line(ticker));
+        svg.select('.x.axis')
+          // .transition()
+          // .duration(durTime)
+          .call(xAxis)
+          .call(g => g.selectAll('.tick:not(.ticked) line').clone()
+            .attr('y1', -(height-marginTop-marginBottom))
+            .attr('stroke-opacity', 0.1))
+          .call(g => g.selectAll('.tick:not(.ticked)').attr('class', 'tick ticked'));
+
+        svg.select('.y.axis')
+          // .transition()
+          // .duration(durTime)
+          .call(yAxis)
+          .call(g => g.selectAll('.tick:not(.ticked) line').clone()
+            .attr('x2', width - marginLeft - marginRight)
+            .attr('stroke-opacity', 0.1))
+          .call(g => g.selectAll('.tick:not(.ticked)').attr('class', 'tick ticked'));
+
+        // update after 5sec
+        setTimeout(() => update(), interval);
+      }
+
+      setTimeout(() => {
+        render();
+      }, 3000);
+
+      /*
       d3.csv("./cs-ex2.csv", rowConverter).then((data) => {
         const ticker = data.slice(-100);
 
@@ -93,7 +321,8 @@
 
         // Declare the y scale
         const y = d3.scaleLinear(
-          [0, d3.max(ticker, (d) => d.U0_A)],
+          // [0, d3.max(ticker, (d) => d.U0_A)],
+          d3.extent(ticker, (d) => d.U0_A),
           [height - marginBottom, marginTop]
         ).nice();
 
@@ -160,6 +389,7 @@
           .attr('d', line(ticker))
 
       });
+      */
     </script>
   </body>
 </html>
