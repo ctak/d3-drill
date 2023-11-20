@@ -110,7 +110,7 @@
         // Compute the points in pixel space as [x, y, z], where z is the name of the series.
         // svg 의 픽셀 공간 안에서 각 값들의 point 를 찾는다. z 로 지역을 추상하고 있음.
         const points = unemployment.map(d => [x(d.date), y(d.unemployment), d.division]);
-
+        console.log(points);
         // An optional Voronoi display (for fun).
         if (voronoi) svg.append('path')
           .attr('fill', 'none')
@@ -155,17 +155,25 @@ length
         */
         console.log(`looped: ${looped}`);
 
+        const color = d3.scaleOrdinal(d3.schemeCategory10);
+        // console.log(color(1));
+        // console.log(color(2));
+        // console.log(color(3));
+
         // Draw the lines.
         const line = d3.line();
         const path = svg.append('g')
           .attr('fill', 'none')
-          .attr('stroke', 'steelblue')
+          // .attr('stroke', 'steelblue')
+          // .attr('stroke', color('good-to-see-you'))
           .attr('stroke-width', 1.5)
           .attr('stroke-linejoin', 'round')
           .attr('stroke-linecap', 'round')
           .selectAll('path')
           .data(groups.values())
           .join('path')
+          // .attr('stroke', 
+          .attr('stroke', (d, i) => color(i % 10))
           .style('mix-blend-mode', 'multiply')
           .attr('d', line);
 

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>천안화재 - 흐르는 강물처럼</title>
+    <title>천안화재 - 흐르는 강물처럼 multiline</title>
     <rel>https://observablehq.com/@d3/candlestick-chart/2</rel>
     <!-- <script type="text/javascript" src="../d3.js"></script> -->
     <script
@@ -56,8 +56,6 @@
       // Declare the chart dimensions and margins.
       const width = 928;
       const height = 300;
-      // const width = 428;
-      // const height = 180;
       const marginTop = 20;
       const marginRight = 30;
       const marginBottom = 30;
@@ -126,6 +124,7 @@
           console.log('fetch ...')
           await sleep(100);
           // const chunk = 1200;
+          // const chunk = 20 * 60 * 6;
           const chunk = 20 * 60;
           const d = data.slice(idx, chunk + idx)
           idx += 1;
@@ -153,7 +152,7 @@
 
       // yAxis
       // const yAxis = d3.axisLeft()
-      const yAxis = d3.axisLeft()
+      const yAxis = d3.axisRight()
         .scale(y)
         .ticks(height / 40);
 
@@ -176,49 +175,17 @@
         const ticker = await db.fetch();
         console.log(ticker.length);
 
-        // Declare the x scale
-        // const x = d3.scaleTime(
-        //   d3.extent(ticker, (d) => d.date),
-        //   [marginLeft, width - marginRight]
-        // );
         x.domain(d3.extent(ticker, (d) => d.date));
 
-        // Declare the y scale
-        // const y = d3.scaleLinear(
-        //   // [0, d3.max(ticker, (d) => d.U0_A)],
-        //   d3.extent(ticker, (d) => d.U0_A),
-        //   [height - marginBottom, marginTop]
-        // ).nice();
         const yArr = d3.extent(ticker, (d) => d.U0_A);
         y.domain([yArr[0] - yPadding, yArr[1] + yPadding]);
-
-        // Declare the line generator
-        // const line = d3
-        //   .line()
-        //   .x((d) => x(d.date))
-        //   .y((d) => y(d.U0_A));
-
-        // Create the SVG container.
-        // const svg = d3
-        //   .select("body")
-        //   .append("svg")
-        //   .attr("width", width)
-        //   .attr("height", height)
-        //   .attr("viewBox", [0, 0, width, height])
-        //   .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
 
         // Add the x-axis.
         svg
           .append("g")
           .attr('class', 'x axis')
           .attr("transform", `translate(0, ${height - marginBottom})`)
-          // .call(d3.axisBottom(x).ticks(width / 80).tickFormat(d3.timeFormat("%m/%d")));
-          // .call(d3.axisBottom(x).ticks(5).tickSizeOuter(0));
           .call(
-            // d3
-            //   .axisBottom(x)
-            //   // .ticks(width / 80)
-            //   .tickSizeOuter(0)
             xAxis
           )
           .call(g => g.selectAll('.tick line').clone()
@@ -232,9 +199,8 @@
         svg
           .append("g")
           .attr('class', 'y axis')
-          .attr("transform", `translate(${marginLeft}, 0)`)
+          .attr("transform", `translate(${width - marginRight}, 0)`)
           .call(
-            // d3.axisLeft(y).ticks(height / 40)
             yAxis
           )
           .call((g) => g.select(".domain").remove())
@@ -264,7 +230,7 @@
           .attr('d', line(ticker));
 
         // update after 5sec
-        setTimeout(() => update(), interval);
+        // setTimeout(() => update(), interval);
 
       }
 
@@ -310,87 +276,7 @@
         render();
       }, 3000);
 
-      /*
-      d3.csv("./cs-ex2.csv", rowConverter).then((data) => {
-        const ticker = data.slice(-100);
 
-        // Declare the x scale
-        const x = d3.scaleTime(
-          d3.extent(ticker, (d) => d.date),
-          [marginLeft, width - marginRight]
-        );
-
-        // Declare the y scale
-        const y = d3.scaleLinear(
-          // [0, d3.max(ticker, (d) => d.U0_A)],
-          d3.extent(ticker, (d) => d.U0_A),
-          [height - marginBottom, marginTop]
-        ).nice();
-
-        // Declare the line generator
-        const line = d3
-          .line()
-          .x((d) => x(d.date))
-          .y((d) => y(d.U0_A));
-
-        // Create the SVG container.
-        const svg = d3
-          .select("body")
-          .append("svg")
-          .attr("width", width)
-          .attr("height", height)
-          .attr("viewBox", [0, 0, width, height])
-          .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
-
-        // Add the x-axis.
-        svg
-          .append("g")
-          .attr("transform", `translate(0, ${height - marginBottom})`)
-          // .call(d3.axisBottom(x).ticks(width / 80).tickFormat(d3.timeFormat("%m/%d")));
-          // .call(d3.axisBottom(x).ticks(5).tickSizeOuter(0));
-          .call(
-            d3
-              .axisBottom(x)
-              // .ticks(width / 80)
-              .tickSizeOuter(0)
-          )
-          .call(g => g.selectAll('.tick line').clone()
-            .attr('y1', -(height-marginTop))
-            .attr('stroke-opacity', 0.1))
-
-        console.log(x.domain());
-
-        // Add the y-axis
-        svg
-          .append("g")
-          .attr("transform", `translate(${marginLeft}, 0)`)
-          .call(d3.axisLeft(y).ticks(height / 40))
-          .call((g) => g.select(".domain").remove())
-          .call((g) =>
-            g
-              .selectAll(".tick line")
-              .clone()
-              .attr("x2", width - marginLeft - marginRight)
-              .attr("stroke-opacity", 0.1))
-          .call((g) =>
-                g
-                  .append("text")
-                  .attr("x", -marginLeft)
-                  .attr("y", 10)
-                  .attr("fill", "currentColor")
-                  .attr("text-anchor", "start")
-                  .text("온도")
-              );
-
-        // Append a path for the line.
-        svg.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', 'steelblue')
-          .attr('stroke-width', 1.5)
-          .attr('d', line(ticker))
-
-      });
-      */
     </script>
   </body>
 </html>
