@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>천안화재 - Edge Matrix</title>
+    <!-- <script type="text/javascript" src="../d3.js"></script> -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+      integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script src="/lib.js"></script>
+    <style type="text/css">
+      .area {
+        fill: teal;
+        stroke: none;
+      }
+
+      .line {
+        fill: none;
+        stroke: teal;
+        stroke-width: 0.5;
+      }
+
+      .safeLevel {
+        stroke: red;
+        stroke-dasharray: 2, 3;
+      }
+
+      .danger {
+        /* stroke: red; */
+        fill: red;
+      }
+
+      .dangerLabel {
+        font-family: Helvetica, sans-serif;
+        font-size: 12px;
+        fill: red;
+      }
+
+      /* #playground {
+        max-width: 960px;
+        min-width: 600px;
+      } */
+    </style>
+  </head>
+
+  <body>
+    <div id="playground"></div>
+
+    <script>
+      const interval = 3000;
+
+      // Declare the chart dimensions and margins.
+      // const width = 928;
+      // const height = 300;
+      const marginTop = 20;
+      const marginRight = 30;
+      const marginBottom = 40;
+      const marginLeft = 50;
+
+
+      // db mock
+      const db = (function warehouse () {
+        const that = {};
+        let data = undefined;
+        let idx = 0;
+        // let endIndex = 0;
+        // let startIndex = 0;
+        function rowConverter(d) {
+          return {
+            // ...d,
+            edge_grp_id: parseFloat(d.edge_grp_id),device_unit_id: parseFloat(d.device_unit_id),sensor_dt: d.sensor_dt,upload_dt: d.upload_dt,co2_1: parseFloat(d.co2_1),tvoc_1: parseFloat(d.tvoc_1),co2_2: parseFloat(d.co2_2),tvoc_2: parseFloat(d.tvoc_2),temp_1: parseFloat(d.temp_1),humid_1: parseFloat(d.humid_1),temp_2: parseFloat(d.temp_2),humid_2: parseFloat(d.humid_2),ptcl_1: parseFloat(d.ptcl_1),ptcl_2: parseFloat(d.ptcl_2),smoke_1: parseFloat(d.smoke_1),smoke_2: parseFloat(d.smoke_2),rownum: parseFloat(d.rownum),t_co2_1: parseFloat(d.t_co2_1),t_co2_2: parseFloat(d.t_co2_2),t_humid_1: parseFloat(d.t_humid_1),t_humid_2: parseFloat(d.t_humid_2),t_ptcl_1: parseFloat(d.t_ptcl_1),t_ptcl_2: parseFloat(d.t_ptcl_2),t_smoke_1: parseFloat(d.t_smoke_1),t_smoke_2: parseFloat(d.t_smoke_2),t_temp_1: parseFloat(d.t_temp_1),t_temp_2: parseFloat(d.t_temp_2),t_tvoc_1: parseFloat(d.t_tvoc_1),t_tvoc_2: parseFloat(d.t_tvoc_2)
+          };
+        }
+
+        d3.csv('./edge-matrix-2.csv', rowConverter).then(d => {
+          console.log('read csv...')
+          data = d;
+        })
+
+        that.fetch = async function () {
+          console.log('fetch ...')
+          await sleep(100);
+          // const chunk = 1200;
+          // const chunk = 20 * 60 * 6;
+          // const chunk = 24 * 60;
+          const chunk = idx === 1 ? 11 : 12;
+          // const chunk = 12;
+          idx += 1;
+          return data.splice(0, chunk)
+        }
+
+        return that;
+      })();
+
+      // edge 하나당 스무개
+      const capacity = 20;
+      const unitCnt = 1;
+
+      const names = ["CO2_1", "CO2_2", "TVOC_1", "TVOC_2", "TEMP_1", "TEMP_2", "HUMID_1", "HUMID_2", "PTCL_1", "PTCL_2", "SMOKE_1", "SMOKE_2"];
+      // const values = [...new Array(names.length)].map(d => []);
+      
+      const units = d3.range(unitCnt * capacity);
+
+      const unitWidth = 20;
+      const width = unitWidth * units.length + marginLeft + marginRight;
+      const rowHeight = 12;
+      const height = rowHeight * names.length + marginTop + marginBottom;
+
+      const x = d3.scaleBand()
+        .domain(units)
+        .rangeRound([marginLeft, width - marginRight])
+
+      const y = d3.scaleBand()
+        .domain(names)
+        .rangeRound([marginTop, height - marginBottom])
+
+      // color 를 표현하기가 어렵네. interpolation!!
+
+      // Create the SVG container
+      const svg = d3.select('#playground').append('svg')
+        .attr('viewBox', [0, 0, width, height])
+        .attr('width', width)
+        .attr('height', height)
+        .attr('style', 'max-width: 100%; height: auto;');
+
+
+      // render
+      async function render() {
+        await sleep(300);
+        const ticker = await db.fetch();
+        console.log(ticker.length);
+
+        const values = [];
+
+        ticker.forEach(d => {
+          names.forEach((name, i) => {
+            // values[i][d.device_unit_id - 1] = [
+            //   d[name.toLowerCase()], 
+            //   d[`t_${name.toLowerCase()}`],
+            //   `${d.edge_grp_id}__${d.device_unit_id}__${name.toLowerCase}`, // key
+            //   d.device_unit_id - 1,
+            //   name,
+            // ];
+            values.push([
+              d[name.toLowerCase()], 
+              d[`t_${name.toLowerCase()}`],
+              `${d.edge_grp_id}__${d.device_unit_id}__${name.toLowerCase()}`, // key
+              d.device_unit_id - 1,
+              name,
+            ])
+          })
+        });
+        console.log(values)
+        const data = {
+          // values,
+          names,
+          units,
+        };
+
+        // const arr = data.values.reduce((acc, cur) => [...acc, ...cur]);
+        // console.log(arr.length)
+
+        // Append the axes
+        svg.append('g')
+          .call(g => g.append('g')
+            .attr('transform', `translate(0,${marginTop})`)
+            .call(d3.axisTop(x).tickSize(0))
+            .call(g => g.select('.domain').remove()))
+          .call(g => g.append('g')
+            .attr('transform', `translate(0, ${height - marginBottom + 1})`)
+            .call(d3.axisBottom(x)
+              .tickValues([])))
+
+        svg.append('g')
+          .attr('transform', `translate(${marginLeft}, 0)`)
+          .call(d3.axisLeft(y).tickSize(0))
+          .call(g => g.select('.domain').remove());
+
+
+        // Create a cell for each (state, year) value.
+        // svg.append('g')
+        //   .selectAll('g')
+        //   .data(data.values)
+        //   .join('g') // sensor y축 이동
+        //     .attr('transform', (d, i) => `translate(0, ${y(data.names[i])})`)
+        //     .attr('class', 'row')
+        //   .selectAll('rect')
+        //   .data(d => d, d => d[2])
+        //   .join('rect')
+        //     .attr('x', (d, i) => x(data.units[i]) + 1)
+        //     .attr('width', x.bandwidth() - 1)
+        //     .attr('height', y.bandwidth() - 1)
+        //     .attr('fill', d => d[0] == null ? '#eee' : d[0] < d[1] ? '#61cdbb' : '#f47560')
+
+        svg.append('g')
+            .attr('class', 'rows')
+          .selectAll('rect')
+          .data(values, d => d[2])
+          .join('rect')
+            .attr('x', (d, i) => x(d[3]) + 1)
+            .attr('y', (d, i) => y(d[4]))
+            .attr('width', x.bandwidth() - 1)
+            .attr('height', y.bandwidth() - 1)
+            .attr('fill', d => d[0] === 0 ? '#eee' : d[0] < d[1] ? '#61cdbb' : '#f47560')
+            
+        // update after 5sec
+        setTimeout(() => update(), interval);
+
+      }
+
+      async function update() {
+        await sleep(600);
+        const ticker = await db.fetch();
+        console.log(ticker.length);
+
+        const values = [];
+
+        ticker.forEach(d => {
+          names.forEach((name, i) => {
+            // values[i][d.device_unit_id - 1] = [
+            //   d[name.toLowerCase()], 
+            //   d[`t_${name.toLowerCase()}`],
+            //   `${d.edge_grp_id}__${d.device_unit_id}__${name.toLowerCase}`, // key
+            //   d.device_unit_id - 1,
+            //   name,
+            // ];
+            values.push([
+              d[name.toLowerCase()], 
+              d[`t_${name.toLowerCase()}`],
+              `${d.edge_grp_id}__${d.device_unit_id}__${name.toLowerCase}`, // key
+              d.device_unit_id - 1,
+              name,
+            ])
+          })
+        });
+        console.log(values[11])
+        const data = {
+          // values,
+          names,
+          units,
+        };
+
+        // const arr = data.values.reduce((acc, cur) => [...acc, ...cur]);
+        // console.log(arr.length)
+
+        const t = d3.select('svg').transition()
+          .duration(750);
+
+        // svg.selectAll('g.row')
+        // .data(data.values)
+        // .join('g.row')
+        // .selectAll('rect')
+        // .data(d => d, d => d[2])
+        svg.select('g.rows')
+        .selectAll('rect')
+        .data(values, d => d[2])
+
+        // .join('rect')
+        //     .attr('x', (d, i) => x(d[3]) + 1)
+        //     .attr('y', (d, i) => y(d[4]))
+        //     .attr('width', x.bandwidth() - 1)
+        //     .attr('height', y.bandwidth() - 1)
+        //     .attr('fill', d => d[0] == null ? '#eee' : d[0] < d[1] ? '#61cdbb' : '#f47560')
+        
+        .join(
+          enter => enter.append('rect')
+              .attr('x', (d, i) => x(d[3]) + 1)
+              .attr('y', d => y(d[4]))
+              .attr('width', x.bandwidth() - 1)
+              .attr('height', y.bandwidth() - 1)
+            .call(enter => enter.transition(t)
+            .attr('fill', d => d[0] == null ? '#eee' : d[0] < d[1] ? '#61cdbb' : '#f47560')),
+          update => update
+            .call(update => update.transition(t)
+              .attr('fill', d => d[0] == null ? '#eee' : d[0] < d[1] ? '#61cdbb' : '#f47560')),
+          exit => exit
+            .call(update => update.transition(t)
+              .attr('fill', 'black')
+              .remove())
+        )
+
+        // update after 5sec
+        setTimeout(() => update(), interval);
+      }
+
+      setTimeout(() => {
+        render();
+      }, 0);
+
+
+    </script>
+  </body>
+</html>

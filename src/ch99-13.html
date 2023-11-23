@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>The impact of vaccines</title>
+    <!-- <rel>https://observablehq.com/@d3/the-impact-of-vaccines?intent=fork</rel> -->
+    <!-- <script type="text/javascript" src="../d3.js"></script> -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+      integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <style type="text/css">
+      .area {
+        fill: teal;
+        stroke: none;
+      }
+
+      .line {
+        fill: none;
+        stroke: teal;
+        stroke-width: 0.5;
+      }
+
+      .safeLevel {
+        stroke: red;
+        stroke-dasharray: 2, 3;
+      }
+
+      .danger {
+        /* stroke: red; */
+        fill: red;
+      }
+
+      .dangerLabel {
+        font-family: Helvetica, sans-serif;
+        font-size: 12px;
+        fill: red;
+      }
+
+      /* #playground {
+        max-width: 960px;
+        min-width: 600px;
+      } */
+    </style>
+  </head>
+
+  <body>
+    <div id="playground"></div>
+    <script>
+      // Declare the chart dimensions and margins.
+      const marginTop = 20;
+      const marginRight = 1;
+      const marginBottom = 40;
+      const marginLeft = 40;
+      const rowHeight = 16;
+      const width = 928;
+      // const height = rowHeight * data.names.length + marginTop + marginBottom;
+
+      const schemeSet1 = ["#e41a1c", "#000000", "#4daf4a"];
+
+      function rowConverter(d) {
+        return {
+          // ...d,
+          date: Date.parse(d.Date), // 결국 date 도 숫자니까.
+          open: parseFloat(d.Open),
+          close: parseFloat(d.Close),
+          high: parseFloat(d.High),
+          low: parseFloat(d.Low),
+        };
+      }
+
+      d3.json("./vaccines.json").then(obj => {
+        // console.log(obj)
+        // console.log(JSON.stringify(obj[1], null, 2));
+        const keys = Object.keys(obj[1]);
+        console.log(keys);
+
+        const names = ["Alaska", "Ala.", "Ark.", "Ariz.", "Calif.", "Colo.", "Conn.", "D.C.", "Del.", "Fla.", "Ga.", "Hawaii", "Iowa", "Idaho", "Ill.", "Ind.", "Kan.", "Ky.", "La.", "Mass.", "Md.", "Maine", "Mich.", "Minn.", "Mo.", "Miss.", "Mont.", "N.C.", "N.D.", "Neb.", "N.H.", "N.J.", "N.M", "Nev.", "N.Y.", "Ohio", "Okla.", "Ore.", "Pa.", "R.I.", "S.C.", "S.D.", "Tenn.", "Texas", "Utah", "Va.", "Vt.", "Wash.", "Wis.", "W.Va.", "Wyo."];
+        const values = [];
+        const year0 = d3.min(obj[0].data.values.data, d => d[0]);
+        const year1 = d3.max(obj[0].data.values.data, d => d[0]);
+        const years = d3.range(year0, year1 + 1);
+        for (const [year, i, value] of obj[0].data.values.data) {
+          if (value == null) continue;
+          (values[i] || (values[i] = []))[year-year0] = value;
+        }
+        const data = {
+          values,
+          names,
+          years,
+          year: obj[0].data.chart_options.vaccine_year
+        };
+
+        const height = rowHeight * data.names.length + marginTop + marginBottom;
+
+       
+        // Create the SVG container.
+        const svg = d3.select('#playground').append('svg')
+          .attr('viewBox', [0, 0, width, height])
+          .attr('width', width)
+          .attr('height', height)
+          .attr('style', 'max-width: 100%; height: auto;');
+
+        // Create the scales.
+        const x = d3.scaleLinear()
+          .domain([d3.min(data.years), d3.max(data.years) + 1])
+          .rangeRound([marginLeft, width - marginRight])
+
+        const y = d3.scaleBand()
+          .domain(data.names)
+          .rangeRound([marginTop, height - marginBottom])
+
+        const color = d3.scaleSequentialSqrt([0, d3.max(data.values, d => d3.max(d))], d3.interpolatePuRd);
+
+        // Append the axes.
+        svg.append('g')
+          .call(g => g.append('g')
+            .attr('transform', `translate(0,${marginTop})`)
+            .call(d3.axisTop(x).ticks(null, 'd'))
+            .call(g => g.select('.domain').remove()))
+          .call(g => g.append('g')
+            .attr('transform', `translate(0, ${height - marginBottom + 4})`)
+            .call(d3.axisBottom(x)
+              .tickValues([data.year]) // 이렇게 하나만 만들 수 도 있네.
+              .tickFormat(x => x)
+              .tickSize(marginTop + marginBottom - height - 10))
+            .call(g => g.select('.tick text')
+              .clone()
+              .attr('dy', '2em')
+              .style('font-weight', 'bold')
+              .text('Measles vaccine introduced'))
+            .call(g => g.select('.domain').remove()))
+        
+        svg.append('g')
+          .attr('transform', `translate(${marginLeft}, 0)`)
+          .call(d3.axisLeft(y).tickSize(0))
+          .call(g => g.select('.domain').remove());
+
+        // Create a cell for each (state, year) value.
+        const f = d3.format(',d');
+        const format = d => isNaN(d) ? 'N/A cases'
+          : d === 0 ? '0 cases'
+          : d < 1 ? '<1 case'
+          : d < 1.5 ? '1 case'
+          : `${f(d)} cases`;
+        
+        svg.append('g')
+          .selectAll('g')
+          .data(data.values)
+          .join('g')
+            .attr('transform', (d, i) => `translate(0, ${y(data.names[i])})`)
+          .selectAll('rect')
+          .data(d => d)
+          .join('rect')
+            .attr('x', (d, i) => x(data.years[i]) + 1)
+            .attr('width', (d, i) => x(data.years[i] + 1) - x(data.years[i]) - 1)
+            .attr('height', y.bandwidth() - 1)
+            .attr('fill', d => isNaN(d) ? '#eee' : d === 0 ? '#fff' : color(d))
+          .append('title')
+            .text((d, i) => `${format(d)} per 100,000 people in ${data.years[i]}`);
+
+      });
+    </script>
+  </body>
+</html>
