@@ -44,6 +44,10 @@
         max-width: 960px;
         min-width: 600px;
       }
+
+      svg {
+        border: 1px solid #ccc;
+      }
     </style>
   </head>
 
@@ -51,7 +55,7 @@
     <div id="playground"></div>
 
     <script>
-      const interval = 300;
+      const interval = 3000;
 
       // Declare the chart dimensions and margins.
       const width = 928;
@@ -59,7 +63,7 @@
       const marginTop = 20;
       const marginRight = 30;
       const marginBottom = 30;
-      const marginLeft = 40;
+      const marginLeft = 200;
 
       function rowConverter(d) {
         function format(str) {
@@ -139,6 +143,41 @@
 
       console.log(db);
 
+      ////////////////////////////////////////////////////////////////
+      // Control 그리기
+      ////////////////////////////////////////////////////////////////
+      function control(svg) {
+        const sensorNames = ["CO2", "TVOC", "TEMP", "HUMID", "PTCL", "SMOKE"];
+        const widthSensor = 40;        
+        const heightSensor = 20;
+        
+        const ySensor = d3.scaleBand()
+          .domain(sensorNames)
+          .rangeRound([0, heightSensor * sensorNames.length]);
+
+        const gSensor = svg.append('g')
+            .attr('class', 'control')
+          .selectAll('g')
+          .data(sensorNames)
+          .join('g')
+            .attr('transform', d => `translate(0, ${ySensor(d)})`)
+          .call(g => g.append('rect')
+            .attr('width', widthSensor)
+            .attr('height', ySensor.bandwidth() - 2)
+            .attr('fill', '#eee'))
+          .call(g => g.append('text')
+            .attr('x', 20)
+            .attr('y', 11)
+            .attr('font-size', '10px')
+            .attr('fill', 'currentColor')
+            .attr('text-anchor', 'middle')
+            .text(d => d))
+      }
+
+      ////////////////////////////////////////////////////////////////
+      // Chart 그리기
+      ////////////////////////////////////////////////////////////////
+
       // Declare the x scale
       const x = d3.scaleTime().range([marginLeft, width - marginRight]);
 
@@ -167,12 +206,32 @@
         .attr("viewBox", [0, 0, width, height])
         .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
 
+      control(svg);
+
       const line = d3
         .line()
         // .x((d) => x(d.date))
         // .y((d) => y(d.val));
 
-      const color = d3.scaleOrdinal(d3.schemeCategory10);
+      // const color = d3.scaleOrdinal(d3.schemeCategory10);
+      // d3.color('#a6cee3').darker(2).formatHex()
+      const names = ["U0_A","U0_B","U1_A","U1_B","U2_A","U2_B","U3_A","U3_B","U4_A","U4_B","U5_A","U5_B",
+        "U6_A","U6_B","U7_A","U7_B","U8_A","U8_B","U9_A","U9_B","U10_A","U10_B","U11_A","U11_B",
+        "U12_A","U12_B","U13_A","U13_B","U14_A","U14_B","U15_A","U15_B","U16_A","U16_B","U17_A","U17_B",
+        "U18_A","U18_B","U19_A","U19_B","U20_A","U20_B"];
+
+      // 배색. secondary color 는 어떻게 구하나?
+      const color = (key) => {
+        const idx = names.indexOf(key);
+        // const scheme = d3.schemePaired;
+        // const scheme = d3.schemeSet3;
+        const scheme = d3.schemeCategory10;
+        if (idx < 0) { throw new Error(`[${key}] is not in names.`); }
+        const q = Math.floor(idx / scheme.length);
+        const r = Math.floor(idx % scheme.length);
+        return q === 0 ? scheme[r]
+          : d3.color(scheme[r]).darker(q).formatHex();
+      }
 
       async function render() {
         await sleep(300);
@@ -183,7 +242,8 @@
         x.domain(d3.extent(ticker, (d) => d.date));
 
         const yArr = d3.extent(ticker, (d) => d.val);
-        y.domain([yArr[0] - yPadding, yArr[1] + yPadding]);
+        // y.domain([yArr[0] - yPadding, yArr[1] + yPadding]);
+        y.domain([yArr[0] * 0.9, yArr[1] * 1.1]).nice();
 
         // Compute the points in pixel space as [x, y, z]
         const points = ticker.map(d => [x(d.date), y(d.val), d.division]);
@@ -195,7 +255,7 @@
           looped += 1;
           return Object.assign(v, {z: v[0][2]});
         }, d => d[2]);
-        // console.log(groups);
+        console.log(groups);
 
         // Add the x-axis.
         svg
@@ -225,7 +285,7 @@
             g
               .selectAll(".tick line")
               .clone()
-              .attr("x2", width - marginLeft - marginRight)
+              .attr("x2", -(width - marginLeft - marginRight))
               .attr("stroke-opacity", 0.1))
           .call(g => g.selectAll('.tick').attr('class', 'tick ticked'))
           .call((g) =>
@@ -250,9 +310,10 @@
           // .attr('stroke-linejoin', 'round')
           // .attr('stroke-linecap', 'round')
           .selectAll('path')
-          .data(groups.values())
+          .data(groups.values(), d => d[0][2])
           .join('path')
-          .attr('stroke', (d, i) => color(i % 10))
+          .attr('stroke', (d, i) => color(d[0][2]))
+          .attr("stroke-width", 0.75)
           .style('mix-blend-mode', 'multiply')
           .attr('d', line);
 
@@ -269,7 +330,8 @@
         x.domain(d3.extent(ticker, (d) => d.date));
         const yArr = d3.extent(ticker, (d) => d.val);
         // console.log(yArr);
-        y.domain([yArr[0] - yPadding, yArr[1] + yPadding]);
+        // y.domain([yArr[0] - yPadding, yArr[1] + yPadding]);
+        y.domain([yArr[0] * 0.9, yArr[1] * 1.1]).nice();
 
         // Compute the points in pixel space as [x, y, z]
         const points = ticker.map(d => [x(d.date), y(d.val), d.division]);
@@ -300,16 +362,18 @@
           // .transition()
           // .duration(durTime)
           .call(yAxis)
+          .call(g => g.select('.domain').remove())
           .call(g => g.selectAll('.tick:not(.ticked) line').clone()
-            .attr('x2', width - marginLeft - marginRight)
+            .attr('x2', -(width - marginLeft - marginRight))
             .attr('stroke-opacity', 0.1))
           .call(g => g.selectAll('.tick:not(.ticked)').attr('class', 'tick ticked'));
 
         // const line = d3.line();
         const path = svg.selectAll('g.pathes path')
-          .data(groups.values())
+          .data(groups.values(), d => d[0][2])
           .join('path')
-          .attr('stroke', (d, i) => color(i % 10))
+          .attr('stroke', (d, i) => color(d[0][2]))
+          .attr("stroke-width", 0.75)
           .style('mix-blend-mode', 'multiply')
           .attr('d', line);
 
