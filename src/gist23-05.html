@@ -89,7 +89,23 @@
           const chunk = idx === 1 ? 11 : 12;
           // const chunk = 12;
           idx += 1;
-          return data.splice(0, chunk)
+          const part = data.splice(0, chunk)
+
+          const columns = ["co2_1", "tvoc_1", "co2_2", "tvoc_2", "temp_1", "humid_1", "temp_2", "humid_2", "ptcl_1", "ptcl_2", "smoke_1", "smoke_2"];
+          part.forEach(d => {
+            let columnName = columns[Math.floor(Math.random() * columns.length)];
+            d[columnName] = d[columnName] * (1 + 0.5 * (Math.random()) - 0.5);
+            //
+            columnName = columns[Math.floor(Math.random() * columns.length)];
+            d[columnName] = d[columnName] * (1 + 0.5 * (Math.random()) - 0.5);
+          });
+
+          if (idx % 3 === 0) {
+            part.splice(Math.floor(Math.random() * part.length), 1);
+          }
+
+          return part;
+
         }
 
         return that;
@@ -204,7 +220,7 @@
             .attr('y', (d, i) => y(d[4]))
             .attr('width', x.bandwidth() - 1)
             .attr('height', y.bandwidth() - 1)
-            .attr('fill', d => d[0] === 0 ? '#eee' : d[0] < d[1] ? '#61cdbb' : '#f47560')
+            .attr('fill', d => d[0] === 0 ? 'black' : d[0] < d[1] ? '#61cdbb' : '#f47560')
             
         // update after 5sec
         setTimeout(() => update(), interval);
@@ -230,7 +246,7 @@
             values.push([
               d[name.toLowerCase()], 
               d[`t_${name.toLowerCase()}`],
-              `${d.edge_grp_id}__${d.device_unit_id}__${name.toLowerCase}`, // key
+              `${d.edge_grp_id}__${d.device_unit_id}__${name.toLowerCase()}`, // key
               d.device_unit_id - 1,
               name,
             ])
@@ -272,10 +288,10 @@
               .attr('width', x.bandwidth() - 1)
               .attr('height', y.bandwidth() - 1)
             .call(enter => enter.transition(t)
-            .attr('fill', d => d[0] == null ? '#eee' : d[0] < d[1] ? '#61cdbb' : '#f47560')),
+            .attr('fill', d => d[0] === 0 ? 'black' : d[0] < d[1] ? '#61cdbb' : '#f47560')),
           update => update
             .call(update => update.transition(t)
-              .attr('fill', d => d[0] == null ? '#eee' : d[0] < d[1] ? '#61cdbb' : '#f47560')),
+              .attr('fill', d => d[0] === 0 ? 'black' : d[0] < d[1] ? '#61cdbb' : '#f47560')),
           exit => exit
             .call(update => update.transition(t)
               .attr('fill', 'black')
